@@ -1,5 +1,7 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Creates a ChatKit session using env vars
 // Required:
@@ -16,6 +18,8 @@ export async function POST() {
   if (!workflowId) {
     return NextResponse.json({ error: "Missing OPENAI_WORKFLOW_ID" }, { status: 500 });
   }
+
+  const OpenAI = (await import("openai")).default;
 
   const client = new OpenAI({
     apiKey,

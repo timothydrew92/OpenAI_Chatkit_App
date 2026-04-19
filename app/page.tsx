@@ -107,10 +107,10 @@ export default function Home() {
 }
 `;
 
-      const studentRouteTs = `import OpenAI from "openai";
-import { NextResponse } from "next/server";
+      const studentRouteTs = `import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -123,6 +123,8 @@ export async function POST() {
   if (!workflowId) {
     return NextResponse.json({ error: "Missing OPENAI_WORKFLOW_ID" }, { status: 500 });
   }
+
+  const OpenAI = (await import("openai")).default;
 
   const client = new OpenAI({
     apiKey,
@@ -343,7 +345,7 @@ module.exports = {
           <div className="mb-8">
             <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">OpenAI ChatKit Helper</h1>
             <p className="mt-2 max-w-xl text-sm text-zinc-600">
-              Create a simple web app for your published OpenAI Agent Builder workflow, then follow the steps to deploy it with GitHub and Vercel.
+              Generate a ready-to-deploy zip file for your published OpenAI Agent Builder workflow, then follow the steps to put that app online with GitHub and Vercel.
             </p>
           </div>
 
@@ -415,7 +417,7 @@ module.exports = {
               </p>
 
               <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-                Your app has been created and downloaded. Follow the steps below to put it online.
+                Your zip file has been created and downloaded. Follow the steps below to upload it to GitHub and publish it with Vercel.
               </div>
               <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                 <h3 className="text-sm font-semibold text-zinc-900">Next steps</h3>
