@@ -547,7 +547,12 @@ module.exports = {
                       {[
                         "Click 'Deploy'.",
                         "Wait for deployment to finish.",
-                        "Click the URL to open your live app."
+                        "Click the URL to open your live app.",
+                        "Copy your live Vercel URL.",
+                        "Go back to OpenAI Agent Builder.",
+                        "Click 'Add Domain'.",
+                        "Paste your Vercel URL and save.",
+                        "Test your live app again."
                       ].map((step, i) => {
                         const index = 200 + i;
                         return (
@@ -564,6 +569,15 @@ module.exports = {
                           </label>
                         );
                       })}
+                    </div>
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-zinc-900">Important: One final connection step</p>
+                      <p className="mt-2 text-sm text-zinc-700">
+                        Your Vercel app will not be able to talk to your OpenAI agent until you go back to Agent Builder and allow your deployed domain.
+                      </p>
+                      <p className="mt-2 text-sm text-zinc-700">
+                        If your site opens but the chat does not work, this is the first thing to check.
+                      </p>
                     </div>
                   </div>
 
