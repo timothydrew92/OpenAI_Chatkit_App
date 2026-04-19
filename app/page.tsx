@@ -1,65 +1,578 @@
-import Image from "next/image";
+"use client";
+
+import JSZip from "jszip";
+import { useState } from "react";
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function escapeForTemplate(value: string) {
+  return value.replace(/`/g, "\\`");
+}
 
 export default function Home() {
+  const [appName, setAppName] = useState("");
+  const [workflowId, setWorkflowId] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [generated, setGenerated] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+
+  const toggleStep = (index: number) => {
+    setCompletedSteps((prev) =>
+      prev.includes(index)
+        ? prev.filter((i) => i !== index)
+        : [...prev, index]
+    );
+  };
+
+  const handleGenerate = () => {
+    setGenerated(true);
+  };
+
+  const handleDownloadZip = async () => {
+    const trimmedAppName = appName.trim();
+    const trimmedWorkflowId = workflowId.trim();
+    const trimmedWelcomeMessage = welcomeMessage.trim();
+
+    if (!trimmedAppName || !trimmedWorkflowId || !trimmedWelcomeMessage) {
+      alert("Please complete all fields before creating your app files.");
+      return;
+    }
+
+    setIsDownloading(true);
+
+    try {
+      const projectSlug = slugify(trimmedAppName) || "chatkit-app";
+      const zip = new JSZip();
+      const root = zip.folder(projectSlug);
+
+      if (!root) {
+        throw new Error("Failed to create zip folder.");
+      }
+
+      const studentPageTsx = `"use client";
+
+import { ChatKit, useChatKit } from "@openai/chatkit-react";
+
+export default function Home() {
+  const { control } = useChatKit({
+    api: {
+      async getClientSecret(existing) {
+        if (existing) {
+          return existing;
+        }
+
+        const res = await fetch("/api/chatkit/session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.client_secret) {
+          throw new Error(data.error || "Failed to get client secret");
+        }
+
+        return data.client_secret;
+      },
+    },
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-zinc-100 px-6 py-12 text-zinc-900">
+      <div className="mx-auto max-w-4xl">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-lg">
+          <div className="mb-6">
+            <h1 className="text-3xl font-semibold tracking-tight">${escapeForTemplate(trimmedAppName)}</h1>
+            <p className="mt-2 text-sm text-zinc-600">
+              ${escapeForTemplate(trimmedWelcomeMessage)}
+            </p>
+          </div>
+
+          <div className="h-[75vh] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+            <ChatKit control={control} className="h-full w-full" />
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+    </main>
+  );
+}
+`;
+
+      const studentRouteTs = `import OpenAI from "openai";
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function POST() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const workflowId = process.env.OPENAI_WORKFLOW_ID;
+
+  if (!apiKey) {
+    return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
+  }
+
+  if (!workflowId) {
+    return NextResponse.json({ error: "Missing OPENAI_WORKFLOW_ID" }, { status: 500 });
+  }
+
+  try {
+    const session = await client.beta.chatkit.sessions.create({
+      user: \`user_\${crypto.randomUUID()}\`,
+      workflow: { id: workflowId },
+    });
+
+    return NextResponse.json({
+      client_secret: session.client_secret,
+    });
+  } catch (error) {
+    console.error("Failed to create ChatKit session:", error);
+
+    return NextResponse.json(
+      { error: "Failed to create ChatKit session" },
+      { status: 500 }
+    );
+  }
+}
+`;
+
+      const envExample = `OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_WORKFLOW_ID=${trimmedWorkflowId}
+`;
+
+      const packageJson = `{
+  "name": "${projectSlug}",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@openai/chatkit-react": "latest",
+    "next": "latest",
+    "openai": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  }
+}
+`;
+
+      const readme = `# ${trimmedAppName}
+
+This project was generated by OpenAI ChatKit Helper.
+
+## Before you begin
+
+You will need:
+- a GitHub account
+- a Vercel account
+- your OpenAI API key
+
+## Setup steps
+
+1. Upload these files to a new GitHub repository.
+2. Import that repository into Vercel.
+3. Open the zip file, then drag ALL the files inside into GitHub.
+4. For OPENAI_WORKFLOW_ID, use:
+   - ${trimmedWorkflowId}
+5. Deploy the app.
+
+## Local development
+
+1. Run \`npm install\`
+2. Copy \`.env.local.example\` to \`.env.local\`
+3. Add your real OpenAI API key
+4. Run \`npm run dev\`
+`;
+
+      const layoutTsx = `import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "${escapeForTemplate(trimmedAppName)}",
+  description: "A ChatKit app generated from an OpenAI Agent Builder workflow.",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+`;
+
+      const globalsCss = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+`;
+
+      const tsConfig = `{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+`;
+
+      const nextEnvDts = `/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// This file should not be edited.
+`;
+
+      const nextConfig = `/** @type {import('next').NextConfig} */
+const nextConfig = {};
+
+module.exports = nextConfig;
+`;
+
+      const postcssConfig = `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+`;
+
+      const tailwindConfig = `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
+`;
+
+      root.file("package.json", packageJson);
+      root.file("README.md", readme);
+      root.file(".env.local.example", envExample);
+      root.file("tsconfig.json", tsConfig);
+      root.file("next-env.d.ts", nextEnvDts);
+      root.file("next.config.js", nextConfig);
+      root.file("postcss.config.js", postcssConfig);
+      root.file("tailwind.config.js", tailwindConfig);
+      root.folder("app")?.file("page.tsx", studentPageTsx);
+      root.folder("app")?.file("layout.tsx", layoutTsx);
+      root.folder("app")?.file("globals.css", globalsCss);
+      root.folder("app")?.folder("api")?.folder("chatkit")?.folder("session")?.file("route.ts", studentRouteTs);
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${projectSlug}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong while creating your app files.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-zinc-100 px-6 py-12 text-zinc-900">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-sky-100/70 blur-3xl" />
+        <div className="absolute right-0 bottom-0 h-96 w-96 rounded-full bg-indigo-100/60 blur-3xl" />
+      </div>
+      <div className="relative z-10 mx-auto max-w-3xl">
+        <div className="space-y-6 rounded-3xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur">
+          <div className="mb-8">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">OpenAI ChatKit Helper</h1>
+            <p className="mt-2 max-w-xl text-sm text-zinc-600">
+              Create a simple web app for your published OpenAI Agent Builder workflow, then follow the steps to deploy it with GitHub and Vercel.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="grid gap-5">
+              <div>
+                <label className="mb-2 block text-sm font-medium">App name</label>
+                <p className="mb-2 text-xs text-zinc-500">
+                  Enter the name you want shown at the top of the deployed web app.
+                </p>
+                <input
+                  value={appName}
+                  onChange={(e) => setAppName(e.target.value)}
+                  placeholder="My Agent App"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">Workflow ID</label>
+                <p className="mb-2 text-xs text-zinc-500">
+                  Paste the published workflow ID from your OpenAI Agent Builder workflow.
+                </p>
+                <input
+                  value={workflowId}
+                  onChange={(e) => setWorkflowId(e.target.value)}
+                  placeholder="wf_..."
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">Public welcome message</label>
+                <p className="mb-2 text-xs text-zinc-500">
+                  Enter the first message your end users should see when they open your deployed agent app.
+                </p>
+                <p className="mb-2 text-xs text-zinc-500">
+                  Be specific about the task this agent performs (e.g., "This assistant summarizes uploaded PDFs").
+                </p>
+                <textarea
+                  value={welcomeMessage}
+                  onChange={(e) => setWelcomeMessage(e.target.value)}
+                  placeholder="Welcome. This assistant helps with <describe the task>."
+                  rows={4}
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-1">
+                <button
+                  onClick={() => {
+                    handleGenerate();
+                    handleDownloadZip();
+                  }}
+                  disabled={isDownloading}
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isDownloading ? "Creating Your App..." : "Create & Download My App"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {generated && (
+            <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold">Your App Setup</h2>
+              <p className="mt-2 text-sm text-zinc-600">
+                Your app has been prepared. Follow the steps below to turn it into a live website.
+              </p>
+
+              <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                Your app has been created and downloaded. Follow the steps below to put it online.
+              </div>
+              <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                <h3 className="text-sm font-semibold text-zinc-900">Next steps</h3>
+                <div className="mt-3 space-y-6">
+
+                  {/* GitHub Section */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-900">Step 1: Upload Your App to GitHub</h4>
+                    <div className="mt-3 space-y-3">
+                      {[
+                        "Go to https://github.com in your browser.",
+                        "Click the 'Sign up' button and create a free account if you do not already have one.",
+                        "Once logged in, click the '+' icon in the top right, then click 'New repository'.",
+                        "Enter a name for your project (you can use the same name you entered above).",
+                        "Scroll down and click the green 'Create repository' button.",
+                        "On the next screen, click 'uploading an existing file'.",
+                        "Open the zip file you downloaded and unzip it on your computer.",
+                        "Open the unzipped folder.",
+                        "Select ALL the files inside that folder (not the folder itself).",
+                        "Drag those files into the GitHub upload area in your browser.",
+                        "Scroll down and click the green 'Commit changes' button."
+                      ].map((step, index) => (
+                        <label key={index} className="flex items-start gap-3 text-sm text-zinc-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={completedSteps.includes(index)}
+                            onChange={() => toggleStep(index)}
+                            className="mt-1 h-4 w-4"
+                          />
+                          <span className={completedSteps.includes(index) ? "line-through text-zinc-400" : ""}>
+                            {step}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Vercel Section */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-900">Step 2: Deploy Your App with Vercel</h4>
+                    <div className="mt-3 space-y-3">
+                      {[
+                        "Go to https://vercel.com and create a free account.",
+                        "Click 'Add New' → 'Project'.",
+                        "Find the repository you just created and click it.",
+                        "Click 'Import'."
+                      ].map((step, i) => {
+                        const index = 50 + i;
+                        return (
+                          <label key={index} className="flex items-start gap-3 text-sm text-zinc-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={completedSteps.includes(index)}
+                              onChange={() => toggleStep(index)}
+                              className="mt-1 h-4 w-4"
+                            />
+                            <span className={completedSteps.includes(index) ? "line-through text-zinc-400" : ""}>
+                              {step}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    {/* Environment Variables */}
+                    <div className="mt-4">
+                      <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                        <p className="text-sm font-semibold text-zinc-900">First: Get your OpenAI API Key</p>
+                        <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                          {[
+                            "Go to https://platform.openai.com",
+                            "In the left menu, click 'API keys'",
+                            "Click 'Create new secret key'",
+                            "Give it any name (e.g., My App Key)",
+                            "Click Create",
+                            "Copy the key immediately (you will not see it again)"
+                          ].map((step, i) => {
+                            const index = 300 + i;
+                            return (
+                              <label key={index} className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={completedSteps.includes(index)}
+                                  onChange={() => toggleStep(index)}
+                                  className="mt-1 h-4 w-4"
+                                />
+                                <span className={completedSteps.includes(index) ? "line-through text-zinc-400" : ""}>
+                                  {step}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        <p className="mt-3 text-xs text-zinc-600">
+                          Your API key is private. Do not share it or paste it into your code.
+                        </p>
+                      </div>
+                      <p className="text-sm font-medium text-zinc-900">Next: Add Environment Variables in Vercel</p>
+                      <div className="mt-2 space-y-2 pl-4 text-sm text-zinc-700">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={completedSteps.includes(100)}
+                            onChange={() => toggleStep(100)}
+                            className="mt-1 h-4 w-4"
+                          />
+                          <span className={completedSteps.includes(100) ? "line-through text-zinc-400" : ""}>
+                            Add OPENAI_API_KEY → your OpenAI API key
+                          </span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={completedSteps.includes(101)}
+                            onChange={() => toggleStep(101)}
+                            className="mt-1 h-4 w-4"
+                          />
+                          <span className={completedSteps.includes(101) ? "line-through text-zinc-400" : ""}>
+                            Add OPENAI_WORKFLOW_ID → the workflow ID you entered above
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Final Steps */}
+                    <div className="mt-4 space-y-3">
+                      {[
+                        "Click 'Deploy'.",
+                        "Wait for deployment to finish.",
+                        "Click the URL to open your live app."
+                      ].map((step, i) => {
+                        const index = 200 + i;
+                        return (
+                          <label key={index} className="flex items-start gap-3 cursor-pointer text-sm text-zinc-700">
+                            <input
+                              type="checkbox"
+                              checked={completedSteps.includes(index)}
+                              onChange={() => toggleStep(index)}
+                              className="mt-1 h-4 w-4"
+                            />
+                            <span className={completedSteps.includes(index) ? "line-through text-zinc-400" : ""}>
+                              {step}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
