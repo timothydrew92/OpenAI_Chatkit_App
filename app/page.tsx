@@ -112,10 +112,6 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST() {
   const apiKey = process.env.OPENAI_API_KEY;
   const workflowId = process.env.OPENAI_WORKFLOW_ID;
@@ -127,6 +123,10 @@ export async function POST() {
   if (!workflowId) {
     return NextResponse.json({ error: "Missing OPENAI_WORKFLOW_ID" }, { status: 500 });
   }
+
+  const client = new OpenAI({
+    apiKey,
+  });
 
   try {
     const session = await client.beta.chatkit.sessions.create({
